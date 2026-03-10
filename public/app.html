@@ -1803,8 +1803,22 @@ function renderAnalyticsBars(){
 // ── AI Coach ───────────────────────────────────────────────────────────────
 async function runAI(fullPage=false){
   if(S.trades.length<3){showToast('Log at least 3 trades to unlock AI analysis');return;}
+
+  // ── Cost optimisation helpers ──────────────────────────────────────────
+  function _hashStr(str){let h=0;for(let i=0;i<str.length;i++){h=Math.imul(31,h)+str.charCodeAt(i)|0;}return(h>>>0).toString(36);}
+  function _canCall(key,mins){const l=localStorage.getItem(key);return !l||Date.now()-parseInt(l)>mins*60000;}
+  function _stamp(key){localStorage.setItem(key,Date.now().toString());}
+
   const panel=document.getElementById('ai-panel');
-  panel.innerHTML=`<div class="thinking"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div><span style="margin-left:8px">Analyzing ${S.trades.length} trades…</span></div>`;
+
+  // ── Rate limit: once per 30 mins ──────────────────────────────────────
+  if(!_canCall('ew-ai-insights-ts',30)){
+    const cached=localStorage.getItem('ew-ai-insights-cache');
+    if(cached){try{renderInsights(panel,JSON.parse(cached));showToast('Cached insights — refreshes every 30 min');return;}catch{}}
+    showToast('AI insights available once every 30 minutes'); return;
+  }
+
+  panel.innerHTML=`<div class="thinking"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div><span style="margin-left:8px">Analyzing ${S.trades.length} trades\u2026</span></div>`;
   if(fullPage){
     document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1812,30 +1826,36 @@ async function runAI(fullPage=false){
     document.getElementById('page-ai').classList.add('active');
     activeTab='ai';
   }
+
+  // ── Cap at last 100 trades to reduce tokens ───────────────────────────
+  const tradesToAnalyze=S.trades.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,100);
   const k=kpis(S.trades);
-  const summary=S.trades.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>`${t.date}|${t.instrument}|${t.direction}|${t.strategy||'—'}|${t.pnl}|${t.r}|${t.emotion||'—'}|rules:${(t.dayMarkers||[]).join(',')}`).join('\n');
-  const prompt=`You are an elite trading coach. Analyze this trader's journal data and deliver 6 sharp, specific, data-backed insights.
+  const summary=tradesToAnalyze.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>`${t.date}|${t.instrument}|${t.direction}|${t.strategy||'\u2014'}|${t.pnl}|${t.r}|${t.emotion||'\u2014'}|rules:${(t.dayMarkers||[]).join(',')}`).join('\n');
 
-STATS: ${k.total} trades | ${(k.winRate*100).toFixed(1)}% win rate | ${fmtR(k.avgR)} avg R | PF ${isFinite(k.pf)?k.pf.toFixed(2):'∞'} | Exp ${fmtR(k.exp)} | Max DD $${k.maxDD.toFixed(0)}
+  // ── Hash check — skip API if trades unchanged ─────────────────────────
+  const dataHash=_hashStr(summary);
+  const lastHash=localStorage.getItem('ew-ai-insights-hash');
+  const cachedInsights=localStorage.getItem('ew-ai-insights-cache');
+  if(dataHash===lastHash&&cachedInsights){
+    try{renderInsights(panel,JSON.parse(cachedInsights));showToast('Insights loaded from cache \u2014 no API call used');return;}catch{}
+  }
 
-TRADES:
-${summary}
-
-Return exactly this JSON (no markdown, no extra text):
-{"insights":[{"type":"PATTERN|BEHAVIORAL|RISK|OPPORTUNITY|WARNING|STRENGTH","title":"Short title max 7 words","body":"2-3 sentences, specific, data-referenced","stat":"one key metric or finding"}]}`;
+  const prompt=`You are an elite trading coach. Analyze this trader's journal data and deliver 6 sharp, specific, data-backed insights.\n\nSTATS: ${k.total} trades | ${(k.winRate*100).toFixed(1)}% win rate | ${fmtR(k.avgR)} avg R | PF ${isFinite(k.pf)?k.pf.toFixed(2):'\u221e'} | Exp ${fmtR(k.exp)} | Max DD $${k.maxDD.toFixed(0)}\n\nTRADES (last ${tradesToAnalyze.length}):\n${summary}\n\nReturn exactly this JSON (no markdown, no extra text):\n{"insights":[{"type":"PATTERN|BEHAVIORAL|RISK|OPPORTUNITY|WARNING|STRENGTH","title":"Short title max 7 words","body":"2-3 sentences, specific, data-referenced","stat":"one key metric or finding"}]}`;
 
   try{
     const resp=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
     const data=await resp.json();
     let text=(data.content?.[0]?.text||'').replace(/```json/g,'').replace(/```/g,'').trim();
     const parsed=JSON.parse(text);
+    localStorage.setItem('ew-ai-insights-cache',JSON.stringify(parsed.insights||[]));
+    localStorage.setItem('ew-ai-insights-hash',dataHash);
+    _stamp('ew-ai-insights-ts');
     renderInsights(panel,parsed.insights||[]);
     showToast(`${(parsed.insights||[]).length} insights generated`);
   }catch(e){
     panel.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--red);padding:16px">Analysis failed: ${esc(e.message)}</div>`;
   }
 }
-
 function renderInsights(panel,insights){
   if(!insights.length){panel.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:16px">No insights generated.</div>';return;}
   const typeClass={PATTERN:'',BEHAVIORAL:'type-behavioral',RISK:'type-risk',OPPORTUNITY:'type-opportunity',WARNING:'type-warning',STRENGTH:'type-strength'};
@@ -2303,41 +2323,67 @@ async function generateWeeklyReview() {
   const wt = getWeekTrades();
   if(!wt.length) { showToast('No trades this week to review'); return; }
 
-  btn.disabled = true;
-  btn.textContent = 'Generating…';
-  area.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0">Analysing your week…</div>`;
+  // ── Hash of this week's trades ────────────────────────────────────────
+  function _hashStr(str){let h=0;for(let i=0;i<str.length;i++){h=Math.imul(31,h)+str.charCodeAt(i)|0;}return(h>>>0).toString(36);}
+  function _canCall(key,mins){const l=localStorage.getItem(key);return !l||Date.now()-parseInt(l)>mins*60000;}
+  function _stamp(key){localStorage.setItem(key,Date.now().toString());}
 
   const k = kpis(wt);
-  const replayNotes = wt.filter(t=>t.replay).map(t=>`${t.date} ${t.instrument} ${t.direction} P&L:${t.pnl} — REPLAY: ${t.replay}`).join('\n');
-  const summary = `Week: ${wt.length} trades, ${fmtPnl(k.totalPnl)}, ${Math.round(k.winRate*100)}% win rate, avg R: ${fmtR(k.avgR)}.
-Emotions: ${[...new Set(wt.map(t=>t.emotion).filter(Boolean))].join(', ')||'not logged'}.
-Strategies: ${[...new Set(wt.map(t=>t.strategy).filter(Boolean))].join(', ')||'not logged'}.
-${replayNotes ? 'Replay notes:\n'+replayNotes : 'No replay notes logged.'}
-All-time: ${S.trades.length} trades, ${fmtPnl(kpis(S.trades).totalPnl)} total P&L.`;
+  const replayNotes = wt.filter(t=>t.replay).map(t=>`${t.date} ${t.instrument} ${t.direction} P&L:${t.pnl} \u2014 REPLAY: ${t.replay}`).join('\n');
+  const summary = `Week: ${wt.length} trades, ${fmtPnl(k.totalPnl)}, ${Math.round(k.winRate*100)}% win rate, avg R: ${fmtR(k.avgR)}.\nEmotions: ${[...new Set(wt.map(t=>t.emotion).filter(Boolean))].join(', ')||'not logged'}.\nStrategies: ${[...new Set(wt.map(t=>t.strategy).filter(Boolean))].join(', ')||'not logged'}.\n${replayNotes ? 'Replay notes:\n'+replayNotes : 'No replay notes logged.'}\nAll-time: ${S.trades.length} trades, ${fmtPnl(kpis(S.trades).totalPnl)} total P&L.`;
+
+  const weekHash = _hashStr(summary);
+  const lastHash = localStorage.getItem('ew-ai-weekly-hash');
+  const cachedReview = localStorage.getItem('ew-ai-weekly-cache');
+
+  // ── Return cache if trades unchanged ─────────────────────────────────
+  if(weekHash === lastHash && cachedReview) {
+    area.innerHTML = cachedReview;
+    showToast('Weekly review loaded from cache \u2014 no API call used');
+    return;
+  }
+
+  // ── Rate limit: once per 30 mins ─────────────────────────────────────
+  if(!_canCall('ew-ai-weekly-ts', 30)){
+    if(cachedReview){ area.innerHTML = cachedReview; showToast('Cached review \u2014 refreshes every 30 min'); return; }
+    showToast('Weekly review available once every 30 minutes'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Generating\u2026';
+  area.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:12px 0">Analysing your week\u2026</div>`;
 
   try {
+    // ── Use Haiku instead of Sonnet (20x cheaper for short text) ─────────
     const resp = await fetch('/api/analyze', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ messages:[{role:'user',content:`You are a prop firm trading coach reviewing a trader's week. Be direct, specific, and actionable. Under 200 words. Format with short paragraphs — no bullet lists.\n\n${summary}\n\nGive: (1) what went well, (2) the main pattern to fix next week, (3) one specific challenge or question for them to reflect on.`}] })
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        messages:[{role:'user',content:`You are a prop firm trading coach reviewing a trader's week. Be direct, specific, and actionable. Under 200 words. Format with short paragraphs \u2014 no bullet lists.\n\n${summary}\n\nGive: (1) what went well, (2) the main pattern to fix next week, (3) one specific challenge or question for them to reflect on.`}]
+      })
     });
     const data = await resp.json();
     const text = data.content?.[0]?.text || 'Could not generate review.';
-    area.innerHTML = `
+    const html = `
       <div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <div style="width:6px;height:6px;border-radius:50%;background:var(--gold)"></div>
-          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">AI Coach · Week Review</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px">AI Coach \u00b7 Week Review</span>
         </div>
         <div style="font-family:var(--body);font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${esc(text)}</div>
       </div>`;
+    area.innerHTML = html;
+    // ── Cache result ──────────────────────────────────────────────────
+    localStorage.setItem('ew-ai-weekly-cache', html);
+    localStorage.setItem('ew-ai-weekly-hash', weekHash);
+    _stamp('ew-ai-weekly-ts');
   } catch(e) {
-    area.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--red)">Review failed — check your API connection</div>`;
+    area.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--red)">Review failed \u2014 check your API connection</div>`;
   }
   btn.disabled = false;
   btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Ask AI Coach`;
 }
-
 // ── CHALLENGE TRACKER ─────────────────────────────────────────────────────────
 let challenges = JSON.parse(localStorage.getItem('ew-challenges')||'[]');
 let editChallengeId = null;
