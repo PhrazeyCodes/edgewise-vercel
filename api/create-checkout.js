@@ -9,25 +9,15 @@ export default async function handler(req, res) {
 
   const origin = req.headers.origin || 'https://edgewisetrader.com';
 
-  // Price config — replace with your actual Stripe Price IDs after creating them
+  // Stripe Price IDs
   const prices = {
     monthly: {
-      price_data: {
-        currency: 'usd',
-        product_data: { name: 'Edgewise Monthly', description: 'Full access to Edgewise Trading Journal & AI Coach' },
-        unit_amount: 1999,
-        recurring: { interval: 'month' },
-      },
+      price: 'price_1T9GQaFMqkHZd7FTeUcJSieN',
       mode: 'subscription',
       trial_period_days: null,
     },
     annual: {
-      price_data: {
-        currency: 'usd',
-        product_data: { name: 'Edgewise Annual', description: 'Full access to Edgewise Trading Journal & AI Coach — best value' },
-        unit_amount: 20000,
-        recurring: { interval: 'year' },
-      },
+      price: 'price_1T9GR7FMqkHZd7FTEW12EfJ6',
       mode: 'subscription',
       trial_period_days: 14,
     },
@@ -39,7 +29,7 @@ export default async function handler(req, res) {
   const sessionBody = {
     mode: selected.mode,
     customer_email: email,
-    line_items: [{ price_data: selected.price_data, quantity: 1 }],
+    line_items: [{ price: selected.price, quantity: 1 }],
     metadata: { user_id: userId, plan },
     success_url: `${origin}/?checkout=success`,
     cancel_url: `${origin}/?checkout=cancelled`,
