@@ -30,27 +30,39 @@
     window._sbUser = user;
     const authEl = document.getElementById('auth-screen');
     const appEl  = document.getElementById('app');
-    if (!authEl || !appEl) return; // DOM not ready yet — onAuthStateChange will retry
+    const subEl  = document.getElementById('sub-screen');
+    if (!authEl || !appEl) return;
     authEl.style.display = 'none';
-    appEl.style.display  = 'flex';
-    const name   = user.user_metadata?.full_name || user.user_metadata?.name || 'Trader';
-    const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
-    const nameEl = document.getElementById('user-name');
-    const avEl   = document.getElementById('user-avatar');
-    if (nameEl) nameEl.textContent = name.split(' ')[0];
-    const fbEl = document.getElementById('avatar-fallback');
-    if (avEl && avatar) { avEl.src = avatar; avEl.style.display = 'block'; if (fbEl) fbEl.style.display = 'none'; }
-    else if (avEl) { avEl.style.display = 'none'; if (fbEl) fbEl.style.display = 'block'; }
-    if (typeof loadUserTrades === 'function') loadUserTrades();
+    if (subEl) subEl.style.display = 'none';
+
+    // Check subscription before showing app
+    window._checkSubscription(user).then(hasActive => {
+      if (!hasActive) {
+        window._showSubscriptionGate();
+        return;
+      }
+      appEl.style.display = 'flex';
+      const name   = user.user_metadata?.full_name || user.user_metadata?.name || 'Trader';
+      const avatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
+      const nameEl = document.getElementById('user-name');
+      const avEl   = document.getElementById('user-avatar');
+      if (nameEl) nameEl.textContent = name.split(' ')[0];
+      const fbEl = document.getElementById('avatar-fallback');
+      if (avEl && avatar) { avEl.src = avatar; avEl.style.display = 'block'; if (fbEl) fbEl.style.display = 'none'; }
+      else if (avEl) { avEl.style.display = 'none'; if (fbEl) fbEl.style.display = 'block'; }
+      if (typeof loadUserTrades === 'function') loadUserTrades();
+    });
   }
 
   function _showAuth() {
     window._sbUser = null;
     const authEl = document.getElementById('auth-screen');
     const appEl  = document.getElementById('app');
+    const subEl  = document.getElementById('sub-screen');
     if (!authEl || !appEl) return;
     authEl.style.display = 'flex';
     appEl.style.display  = 'none';
+    if (subEl) subEl.style.display = 'none';
   }
 
   // ── Auth state listener — fires on page load AND after sign-in/out ─────
@@ -127,6 +139,73 @@
     if (typeof activeTab !== 'undefined') renderPage(activeTab);
     renderDashboard();
   };
+
+  // ── Subscription helpers ───────────────────────────────────────────────
+  window._selectedPlan = 'annual';
+
+  window.selectPlan = (plan) => {
+    window._selectedPlan = plan;
+    document.getElementById('plan-monthly').classList.toggle('selected', plan === 'monthly');
+    document.getElementById('plan-annual').classList.toggle('selected', plan === 'annual');
+    const btn = document.getElementById('btn-subscribe');
+    if (btn) {
+      btn.textContent = plan === 'annual' ? 'Start 14-Day Free Trial' : 'Subscribe — $19.99/mo';
+    }
+  };
+
+  window.startCheckout = async () => {
+    const btn = document.getElementById('btn-subscribe');
+    if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to checkout…'; }
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: window._selectedPlan,
+          userId: window._sbUser.id,
+          email: window._sbUser.email,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Checkout error: ' + (data.error || 'Unknown error'));
+        if (btn) { btn.disabled = false; btn.textContent = window._selectedPlan === 'annual' ? 'Start 14-Day Free Trial' : 'Subscribe — $19.99/mo'; }
+      }
+    } catch (err) {
+      alert('Checkout error: ' + err.message);
+      if (btn) { btn.disabled = false; }
+    }
+  };
+
+  window._checkSubscription = async (user) => {
+    // Check ?checkout=success param first — Stripe just redirected back
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('checkout') === 'success') {
+      // Webhook may take a second — poll up to 5s
+      history.replaceState({}, '', window.location.pathname);
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const { data } = await _supabase
+          .from('subscriptions').select('status').eq('user_id', user.id).single();
+        if (data && (data.status === 'active' || data.status === 'trialing')) {
+          return true;
+        }
+      }
+    }
+
+    const { data } = await _supabase
+      .from('subscriptions').select('status').eq('user_id', user.id).single();
+    return data && (data.status === 'active' || data.status === 'trialing');
+  };
+
+  window._showSubscriptionGate = () => {
+    const subEl = document.getElementById('sub-screen');
+    const appEl = document.getElementById('app');
+    if (subEl) subEl.style.display = 'flex';
+    if (appEl) appEl.style.display = 'none';
+  };
 </script>
 
 <style>
@@ -188,6 +267,54 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
 }
 .btn-google:hover { background: var(--bg3); border-color: var(--gold); }
 .auth-note { font-size: 11px; color: var(--text3); margin-top: 20px; line-height: 1.7; font-family: var(--mono); }
+
+/* ─── Subscription gate ───────────────────────────────────────────────── */
+#sub-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: none; align-items: center; justify-content: center; z-index: 998;
+  padding: 20px;
+}
+.sub-card {
+  width: 100%; max-width: 520px; text-align: center;
+  padding: 52px 44px; background: var(--bg1);
+  border: 1px solid var(--line2); border-radius: 18px;
+}
+.sub-logo { font-family: var(--serif); font-size: 32px; font-weight: 300; color: var(--text); letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase; }
+.sub-logo span { color: var(--gold); }
+.sub-headline { font-size: 13px; color: var(--text2); margin-bottom: 36px; font-family: var(--body); line-height: 1.6; }
+.sub-plans { display: flex; gap: 14px; margin-bottom: 28px; }
+.sub-plan {
+  flex: 1; padding: 20px 16px; border-radius: 12px;
+  border: 1.5px solid var(--line2); background: var(--bg2);
+  cursor: pointer; transition: all .2s; text-align: left; position: relative;
+}
+.sub-plan:hover { border-color: var(--gold2); background: var(--bg3); }
+.sub-plan.selected { border-color: var(--gold); background: var(--bg2); box-shadow: 0 0 0 1px var(--gold); }
+.sub-plan-badge {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--gold); color: var(--bg); font-family: var(--mono);
+  font-size: 9px; font-weight: 500; padding: 3px 10px; border-radius: 20px;
+  letter-spacing: .8px; text-transform: uppercase; white-space: nowrap;
+}
+.sub-plan-name { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px; }
+.sub-plan-price { font-family: var(--serif); font-size: 28px; font-weight: 400; color: var(--text); margin-bottom: 4px; }
+.sub-plan-price span { font-size: 13px; font-family: var(--body); color: var(--text3); }
+.sub-plan-trial { font-size: 10px; font-family: var(--mono); color: var(--gold); margin-top: 6px; }
+.sub-plan-desc { font-size: 11px; color: var(--text3); margin-top: 8px; line-height: 1.5; font-family: var(--body); }
+.btn-subscribe {
+  width: 100%; padding: 14px 20px; background: var(--gold);
+  border: none; border-radius: 10px; color: var(--bg);
+  font-family: var(--body); font-size: 14px; font-weight: 700;
+  cursor: pointer; letter-spacing: .3px; transition: all .2s;
+  margin-bottom: 14px;
+}
+.btn-subscribe:hover { background: var(--gold2); }
+.btn-subscribe:disabled { opacity: 0.6; cursor: not-allowed; }
+.sub-signout-link { font-size: 11px; color: var(--text3); font-family: var(--mono); cursor: pointer; text-decoration: underline; }
+.sub-signout-link:hover { color: var(--text2); }
+.sub-features { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; text-align: left; }
+.sub-feature { font-size: 12px; color: var(--text2); font-family: var(--body); display: flex; align-items: center; gap: 8px; }
+.sub-feature::before { content: '✦'; color: var(--gold); font-size: 8px; flex-shrink: 0; }
 
 /* ─── App shell ───────────────────────────────────────────────────────── */
 #app { display: none; height: 100vh; flex-direction: column; background: var(--bg); }
@@ -737,6 +864,38 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
       Continue with Google
     </button>
     <div class="auth-note">Your trades sync across all devices.<br/>Data stored securely in Supabase.</div>
+  </div>
+</div>
+
+<!-- Subscription gate -->
+<div id="sub-screen">
+  <div class="sub-card">
+    <div class="sub-logo">Edge<span>wise</span></div>
+    <div class="sub-headline">Unlock your trading edge.<br/>Choose a plan to get started.</div>
+    <div class="sub-features">
+      <div class="sub-feature">Unlimited trade logging with full analytics</div>
+      <div class="sub-feature">AI Coach powered by Claude — post-session insights</div>
+      <div class="sub-feature">Equity curve, P&amp;L breakdowns &amp; emotion tracking</div>
+      <div class="sub-feature">Sync across all devices via Supabase</div>
+    </div>
+    <div class="sub-plans">
+      <div class="sub-plan" id="plan-monthly" onclick="selectPlan('monthly')">
+        <div class="sub-plan-name">Monthly</div>
+        <div class="sub-plan-price">$19.99<span>/mo</span></div>
+        <div class="sub-plan-desc">Billed monthly.<br/>Cancel anytime.</div>
+      </div>
+      <div class="sub-plan selected" id="plan-annual" onclick="selectPlan('annual')">
+        <div class="sub-plan-badge">Best Value</div>
+        <div class="sub-plan-name">Annual</div>
+        <div class="sub-plan-price">$200<span>/yr</span></div>
+        <div class="sub-plan-trial">14-day free trial</div>
+        <div class="sub-plan-desc">~$16.67/mo.<br/>Try free for 14 days.</div>
+      </div>
+    </div>
+    <button class="btn-subscribe" id="btn-subscribe" onclick="startCheckout()">
+      Start 14-Day Free Trial
+    </button>
+    <div><span class="sub-signout-link" onclick="signOutUser()">Sign out</span></div>
   </div>
 </div>
 
