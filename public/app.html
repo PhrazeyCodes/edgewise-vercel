@@ -38,7 +38,9 @@
     const nameEl = document.getElementById('user-name');
     const avEl   = document.getElementById('user-avatar');
     if (nameEl) nameEl.textContent = name.split(' ')[0];
-    if (avEl) { avEl.src = avatar; avEl.style.display = avatar ? 'block' : 'none'; }
+    const fbEl = document.getElementById('avatar-fallback');
+    if (avEl && avatar) { avEl.src = avatar; avEl.style.display = 'block'; if (fbEl) fbEl.style.display = 'none'; }
+    else if (avEl) { avEl.style.display = 'none'; if (fbEl) fbEl.style.display = 'block'; }
     if (typeof loadUserTrades === 'function') loadUserTrades();
   }
 
@@ -222,8 +224,8 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
 .btn-log:hover { background: var(--gold2); }
 .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 10px; border-radius: 7px; transition: background .15s; }
 .user-info:hover { background: var(--bg2); }
-.user-avatar-wrap { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); overflow: hidden; display: flex; align-items: center; justify-content: center; }
-#user-avatar { width: 26px; height: 26px; border-radius: 50%; display: none; }
+.user-avatar-wrap { width: 26px; height: 26px; border-radius: 50%; background: var(--bg3); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#user-avatar { width: 26px; height: 26px; border-radius: 50%; display: none; object-fit: cover; flex-shrink: 0; }
 .user-avatar-fallback { font-family: var(--mono); font-size: 10px; color: var(--gold); }
 #user-name { font-size: 12px; color: var(--text2); font-weight: 500; letter-spacing: .2px; }
 .btn-signout { display: none; }
