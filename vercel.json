@@ -1,7 +1,8 @@
 {
+  "outputDirectory": "public",
   "rewrites": [
     { "source": "/api/analyze", "destination": "/api/analyze" },
-    { "source": "/(.*)", "destination": "/public/app.html" }
+    { "source": "/((?!api/).*)", "destination": "/app.html" }
   ],
   "headers": [
     {
