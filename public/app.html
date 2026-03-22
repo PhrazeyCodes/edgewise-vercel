@@ -1391,6 +1391,7 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
           </div>
           <div id="strat-suggestions" class="tag-row" style="min-height:0"></div>
         </div>
+        <input type="hidden" id="f-pnl-pct" value=""/>
 
         <div>
           <div class="field-row-label">Emotional State</div>
@@ -2126,7 +2127,7 @@ async function saveTrade(){
     size: parseFloat(document.getElementById('f-size').value)||1,
     pnl, risk,
     r: risk>0?parseFloat((pnl/risk).toFixed(2)):0,
-    pnlPct: parseFloat(document.getElementById('f-pnl-pct').value)||0,
+    pnlPct: parseFloat(document.getElementById('f-pnl-pct')?.value)||0,
     strategy: strat, emotion: emo,
     exec: parseInt(document.getElementById('f-exec').value)||5,
     replay: document.getElementById('f-replay').value,
