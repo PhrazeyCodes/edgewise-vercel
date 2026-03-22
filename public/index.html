@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EdgeWise — The Prop Trader's Journal</title>
+<meta name="description" content="Track your trades, analyze your edge, and grow as a prop trader. Built for serious futures traders."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Mono:wght@300;400;500&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:     #16181e;
+  --bg1:    #1e2028;
+  --bg2:    #262830;
+  --bg3:    #2e3038;
+  --line:   #2a2c36;
+  --line2:  #32343e;
+  --text:   #e8eaf2;
+  --text2:  #8e93ab;
+  --text3:  #585d72;
+  --gold:   #d4a84b;
+  --gold2:  #b88e38;
+  --green:  #39c47a;
+  --red:    #f05a6e;
+  --blue:   #6492f0;
+  --serif:  'Cormorant Garamond', Georgia, serif;
+  --mono:   'DM Mono', monospace;
+  --body:   'Manrope', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+/* ── Noise texture overlay ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 48px;
+  background: rgba(22,24,30,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.nav-logo {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.nav-logo span { color: var(--gold); }
+.nav-links { display: flex; align-items: center; gap: 32px; }
+.nav-links a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text3);
+  text-decoration: none;
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--gold); }
+.nav-cta {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: var(--gold);
+  color: #1a1500;
+  padding: 10px 22px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background .2s;
+}
+.nav-cta:hover { background: var(--gold2); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+}
+
+/* Radial glow behind hero */
+.hero::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(ellipse, rgba(212,168,75,.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .6s .1s ease forwards;
+}
+
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(52px, 8vw, 96px);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 28px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .7s .2s ease forwards;
+}
+.hero-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+.hero-title .line2 {
+  display: block;
+  font-size: clamp(40px, 6vw, 72px);
+  color: var(--text2);
+}
+
+.hero-sub {
+  font-family: var(--body);
+  font-size: 16px;
+  color: var(--text2);
+  max-width: 480px;
+  line-height: 1.7;
+  margin-bottom: 48px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .7s .35s ease forwards;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .7s .5s ease forwards;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-primary {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: var(--gold);
+  color: #1a1500;
+  padding: 15px 36px;
+  border-radius: 10px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all .2s;
+  border: 1px solid var(--gold);
+}
+.btn-primary:hover { background: var(--gold2); border-color: var(--gold2); transform: translateY(-1px); }
+
+.btn-secondary {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--text2);
+  padding: 15px 28px;
+  border-radius: 10px;
+  text-decoration: none;
+  border: 1px solid var(--line2);
+  transition: all .2s;
+}
+.btn-secondary:hover { border-color: var(--text3); color: var(--text); }
+
+.hero-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: .5px;
+  margin-top: 20px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .7s .65s ease forwards;
+}
+
+/* ── DASHBOARD PREVIEW ── */
+.preview-wrap {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 0;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  animation: fadeUp .8s .75s ease forwards;
+}
+.preview-frame {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+}
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+}
+.preview-dot { width: 10px; height: 10px; border-radius: 50%; }
+.preview-dot:nth-child(1) { background: #f05a6e; }
+.preview-dot:nth-child(2) { background: var(--gold); }
+.preview-dot:nth-child(3) { background: var(--green); }
+.preview-url {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: .5px;
+}
+.preview-inner { padding: 24px; }
+
+/* Mini dashboard stats */
+.mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.mini-stat {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.mini-stat-label { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.mini-stat-val { font-family: var(--serif); font-size: 22px; font-weight: 400; }
+.mini-stat-sub { font-family: var(--mono); font-size: 9px; color: var(--text3); margin-top: 3px; }
+.col-g { color: var(--green); }
+.col-r { color: var(--red); }
+.col-gold { color: var(--gold); }
+.col-blue { color: var(--blue); }
+
+/* Mini chart */
+.mini-chart {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.mini-chart-label { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 12px; }
+.mini-chart svg { display: block; width: 100%; }
+
+/* Mini trades table */
+.mini-table { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.mini-table-head { display: grid; grid-template-columns: 60px 60px 1fr 70px 70px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+.mini-table-head span { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; }
+.mini-row { display: grid; grid-template-columns: 60px 60px 1fr 70px 70px; padding: 9px 14px; border-bottom: 1px solid var(--line); align-items: center; }
+.mini-row:last-child { border: none; }
+.mini-row span { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.mini-row .inst { color: var(--text); font-weight: 500; }
+.chip-l { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 4px; background: rgba(57,196,122,.1); color: var(--green); }
+.chip-s { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 4px; background: rgba(240,90,110,.1); color: var(--red); }
+
+/* ── SECTION SHARED ── */
+section { position: relative; z-index: 1; }
+
+.section-eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--serif);
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+}
+.section-sub {
+  font-size: 15px;
+  color: var(--text2);
+  line-height: 1.7;
+  max-width: 480px;
+}
+
+/* ── FEATURES ── */
+.features {
+  padding: 120px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin-top: 64px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.feat {
+  padding: 36px 32px;
+  background: var(--bg1);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transition: background .2s;
+}
+.feat:hover { background: var(--bg2); }
+.feat:nth-child(3n) { border-right: none; }
+.feat:nth-child(4),.feat:nth-child(5),.feat:nth-child(6) { border-bottom: none; }
+.feat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: rgba(212,168,75,.1);
+  border: 1px solid rgba(212,168,75,.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  color: var(--gold);
+}
+.feat-title { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--text); letter-spacing: .5px; margin-bottom: 10px; text-transform: uppercase; }
+.feat-desc { font-size: 13px; color: var(--text3); line-height: 1.6; }
+
+/* ── JOURNAL SECTION ── */
+.journal-section {
+  padding: 120px 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+.journal-panel {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.journal-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg2);
+  padding: 3px;
+  margin: 16px 16px 0;
+  border-radius: 9px;
+}
+.j-tab {
+  flex: 1;
+  padding: 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-align: center;
+  color: var(--text3);
+  border-radius: 7px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.j-tab.active { background: var(--bg4, #363840); color: var(--text); }
+.journal-content { padding: 20px 16px; }
+.j-field { margin-bottom: 14px; }
+.j-label { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
+.j-input {
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  width: 100%;
+}
+.j-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.j-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line2);
+  color: var(--text3);
+  letter-spacing: .5px;
+}
+.j-tag.active { border-color: var(--gold); color: var(--gold); background: rgba(212,168,75,.07); }
+.j-textarea {
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-family: var(--body);
+  font-size: 11px;
+  color: var(--text2);
+  width: 100%;
+  height: 64px;
+  resize: none;
+  line-height: 1.5;
+}
+
+/* ── PRICING ── */
+.pricing {
+  padding: 120px 48px;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 56px;
+}
+.plan {
+  background: var(--bg1);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  padding: 36px 32px;
+  text-align: left;
+  transition: border-color .2s;
+  position: relative;
+}
+.plan:hover { border-color: var(--line); }
+.plan.featured { border-color: var(--gold); background: var(--bg2); }
+.plan-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: var(--gold);
+  color: #1a1500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  position: absolute;
+  top: -1px; right: 24px;
+  transform: translateY(-50%);
+}
+.plan-name { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 10px; }
+.plan-price { font-family: var(--serif); font-size: 42px; font-weight: 300; color: var(--text); margin-bottom: 4px; }
+.plan-price span { font-family: var(--body); font-size: 14px; color: var(--text3); }
+.plan-trial { font-family: var(--mono); font-size: 10px; color: var(--gold); margin-bottom: 24px; }
+.plan-features { list-style: none; margin-bottom: 32px; }
+.plan-features li {
+  font-size: 13px;
+  color: var(--text2);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.plan-features li:last-child { border: none; }
+.plan-features li::before { content: '✦'; color: var(--gold); font-size: 8px; flex-shrink: 0; }
+.btn-plan {
+  display: block;
+  width: 100%;
+  padding: 13px;
+  border-radius: 9px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all .2s;
+  border: 1px solid var(--line2);
+  color: var(--text2);
+  background: var(--bg3);
+}
+.plan.featured .btn-plan {
+  background: var(--gold);
+  color: #1a1500;
+  border-color: var(--gold);
+}
+.btn-plan:hover { transform: translateY(-1px); }
+.plan.featured .btn-plan:hover { background: var(--gold2); border-color: var(--gold2); }
+
+/* ── DIVIDER ── */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--line2), transparent);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 48px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.footer-logo { font-family: var(--serif); font-size: 18px; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; }
+.footer-logo span { color: var(--gold); }
+.footer-links { display: flex; gap: 28px; }
+.footer-links a { font-family: var(--mono); font-size: 10px; color: var(--text3); text-decoration: none; letter-spacing: .8px; text-transform: uppercase; transition: color .2s; }
+.footer-links a:hover { color: var(--gold); }
+.footer-copy { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  nav { padding: 16px 20px; }
+  .nav-links { display: none; }
+  .hero { padding: 100px 20px 60px; }
+  .features { padding: 80px 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .feat { border-right: none !important; }
+  .feat:nth-child(4),.feat:nth-child(5) { border-bottom: 1px solid var(--line) !important; }
+  .journal-section { padding: 80px 20px; grid-template-columns: 1fr; gap: 40px; }
+  .pricing { padding: 80px 20px; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .mini-stats { grid-template-columns: 1fr 1fr; }
+  footer { padding: 32px 20px; flex-direction: column; align-items: flex-start; gap: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Edge<span>Wise</span></div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#journal">Journal</a>
+    <a href="#pricing">Pricing</a>
+    <a href="mailto:support@edgewisetrader.com">Contact</a>
+  </div>
+  <a href="/app" class="nav-cta">Open App</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">For Prop Traders Who Take It Seriously</div>
+  <h1 class="hero-title">
+    Know Your <em>Edge.</em>
+    <span class="line2">Trade With Precision.</span>
+  </h1>
+  <p class="hero-sub">EdgeWise is the trading journal built for funded futures traders — track every trade, analyze your psychology, and compound your edge over time.</p>
+  <div class="hero-actions">
+    <a href="/app" class="btn-primary">Start Free Trial</a>
+    <a href="#features" class="btn-secondary">See Features</a>
+  </div>
+  <p class="hero-note">14-day free trial on annual plan · No credit card required to explore</p>
+
+  <!-- Dashboard Preview -->
+  <div class="preview-wrap" style="margin-top:64px">
+    <div class="preview-frame">
+      <div class="preview-bar">
+        <div class="preview-dot"></div>
+        <div class="preview-dot"></div>
+        <div class="preview-dot"></div>
+        <div class="preview-url">edgewisetrader.com/app</div>
+      </div>
+      <div class="preview-inner">
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <div class="mini-stat-label">Total P&L</div>
+            <div class="mini-stat-val col-g">+$4,820</div>
+            <div class="mini-stat-sub">47 trades</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-label">Win Rate</div>
+            <div class="mini-stat-val col-gold">63.8%</div>
+            <div class="mini-stat-sub">30W · 17L</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-label">Avg R</div>
+            <div class="mini-stat-val col-blue">+1.42R</div>
+            <div class="mini-stat-sub">Profit factor 2.1</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-label">This Week</div>
+            <div class="mini-stat-val col-g">+$1,240</div>
+            <div class="mini-stat-sub">8 trades</div>
+          </div>
+        </div>
+
+        <div class="mini-chart">
+          <div class="mini-chart-label">Equity Curve</div>
+          <svg viewBox="0 0 840 80" preserveAspectRatio="none" height="80">
+            <defs>
+              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#39c47a" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#39c47a" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,65 L30,62 L60,58 L90,64 L120,55 L150,50 L180,54 L210,45 L240,48 L270,40 L300,35 L330,42 L360,30 L390,25 L420,32 L450,20 L480,15 L510,22 L540,10 L570,16 L600,8 L630,12 L660,5 L690,10 L720,4 L750,8 L780,2 L840,5 L840,80 L0,80Z" fill="url(#chartGrad)"/>
+            <path d="M0,65 L30,62 L60,58 L90,64 L120,55 L150,50 L180,54 L210,45 L240,48 L270,40 L300,35 L330,42 L360,30 L390,25 L420,32 L450,20 L480,15 L510,22 L540,10 L570,16 L600,8 L630,12 L660,5 L690,10 L720,4 L750,8 L780,2 L840,5" fill="none" stroke="#39c47a" stroke-width="1.5"/>
+          </svg>
+        </div>
+
+        <div class="mini-table">
+          <div class="mini-table-head">
+            <span>Inst</span><span>Dir</span><span>Strategy</span><span>P&L</span><span>R</span>
+          </div>
+          <div class="mini-row">
+            <span class="inst">NQ</span>
+            <span><span class="chip-l">Long</span></span>
+            <span style="font-size:10px;color:var(--text3)">ICT Kill Zone</span>
+            <span class="col-g">+$520</span>
+            <span class="col-g">+2.6R</span>
+          </div>
+          <div class="mini-row">
+            <span class="inst">ES</span>
+            <span><span class="chip-s">Short</span></span>
+            <span style="font-size:10px;color:var(--text3)">OR Breakout</span>
+            <span class="col-r">−$180</span>
+            <span class="col-r">−1.0R</span>
+          </div>
+          <div class="mini-row">
+            <span class="inst">NQ</span>
+            <span><span class="chip-l">Long</span></span>
+            <span style="font-size:10px;color:var(--text3)">VWAP Reclaim</span>
+            <span class="col-g">+$380</span>
+            <span class="col-g">+1.9R</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features reveal" id="features">
+  <div class="section-eyebrow">Built for the Edge</div>
+  <h2 class="section-title">Everything a funded trader needs.</h2>
+  <p class="section-sub">No fluff. No noise. Just the tools that actually move the needle on your performance.</p>
+
+  <div class="features-grid">
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div class="feat-title">Real-Time P&L Tracking</div>
+      <div class="feat-desc">Log trades in seconds. Equity curve, win rate, R-multiple, profit factor — all calculated automatically.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      </div>
+      <div class="feat-title">Pre & Post Market Journal</div>
+      <div class="feat-desc">Write your bias and thesis before the open. Reflect on what actually happened after close. Build real self-awareness.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </div>
+      <div class="feat-title">Psychology Tracking</div>
+      <div class="feat-desc">Tag every trade with your emotional state. See how FOMO, revenge trading, and calm focus affect your bottom line.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </div>
+      <div class="feat-title">Strategy Analytics</div>
+      <div class="feat-desc">Break down performance by strategy, instrument, day of week, and session. Discover what's actually working.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
+      <div class="feat-title">AI Trade Analysis</div>
+      <div class="feat-desc">Get personalized insights from your journal data. Identify patterns in your behavior before they become expensive habits.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      </div>
+      <div class="feat-title">Prop Firm Sync</div>
+      <div class="feat-desc">Track multiple accounts — Apex, TopStep, FTMO, and more. Import trade history from any prop firm CSV export.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider reveal"></div>
+
+<!-- JOURNAL SECTION -->
+<section class="journal-section reveal" id="journal">
+  <div>
+    <div class="section-eyebrow">The Journal</div>
+    <h2 class="section-title">Trade with a plan. Reflect with honesty.</h2>
+    <p class="section-sub">Most traders only log after the fact. EdgeWise structures your thinking before, during, and after every session — so your analysis actually improves your trading.</p>
+    <div style="margin-top:32px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:7px;background:rgba(212,168,75,.1);border:1px solid rgba(212,168,75,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:600">1</div>
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:500;margin-bottom:4px">Pre-market analysis</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.5">Set your bias, key levels, and thesis before the open. Commit to your risk plan.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:7px;background:rgba(212,168,75,.1);border:1px solid rgba(212,168,75,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:600">2</div>
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:500;margin-bottom:4px">Log every trade</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.5">Instrument, direction, P&L, R-multiple, strategy, emotion, execution quality.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div style="width:28px;height:28px;border-radius:7px;background:rgba(212,168,75,.1);border:1px solid rgba(212,168,75,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:600">3</div>
+        <div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text);font-weight:500;margin-bottom:4px">Post-market reflection</div>
+          <div style="font-size:13px;color:var(--text3);line-height:1.5">Was your analysis correct? Did you follow the plan? What's the one thing to improve?</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="journal-panel">
+    <div class="journal-tabs">
+      <div class="j-tab active">Trade</div>
+      <div class="j-tab">Pre-Market</div>
+      <div class="j-tab">Post-Market</div>
+    </div>
+    <div class="journal-content">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="j-field">
+          <div class="j-label">Instrument</div>
+          <div class="j-input">NQ</div>
+        </div>
+        <div class="j-field">
+          <div class="j-label">Direction</div>
+          <div class="j-input">Long</div>
+        </div>
+        <div class="j-field">
+          <div class="j-label">P&L ($)</div>
+          <div class="j-input" style="color:var(--green)">+$520</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="j-field">
+          <div class="j-label">Max Risk</div>
+          <div class="j-input">$200</div>
+        </div>
+        <div class="j-field">
+          <div class="j-label">R-Multiple</div>
+          <div class="j-input" style="color:var(--gold)">+2.6R</div>
+        </div>
+      </div>
+      <div class="j-field" style="margin-bottom:14px">
+        <div class="j-label">Emotional State</div>
+        <div class="j-tags" style="margin-top:6px">
+          <div class="j-tag active">Calm &amp; Focused</div>
+          <div class="j-tag">Confident</div>
+          <div class="j-tag">Neutral</div>
+          <div class="j-tag">Anxious</div>
+          <div class="j-tag">FOMO</div>
+        </div>
+      </div>
+      <div class="j-field">
+        <div class="j-label">Strategy</div>
+        <div class="j-input">ICT Kill Zone</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider reveal"></div>
+
+<!-- PRICING -->
+<section class="pricing reveal" id="pricing">
+  <div class="section-eyebrow">Simple Pricing</div>
+  <h2 class="section-title">One tool. One edge.</h2>
+  <p class="section-sub" style="margin:0 auto">Everything included in both plans. No feature gating, no upsells.</p>
+
+  <div class="pricing-grid">
+    <div class="plan">
+      <div class="plan-name">Monthly</div>
+      <div class="plan-price">$19.99<span>/mo</span></div>
+      <div class="plan-trial" style="color:var(--text3);font-size:10px">&nbsp;</div>
+      <ul class="plan-features">
+        <li>Unlimited trade logging</li>
+        <li>AI trade analysis</li>
+        <li>Pre &amp; post market journal</li>
+        <li>Prop firm CSV import</li>
+        <li>Psychology &amp; strategy analytics</li>
+        <li>Multi-account tracking</li>
+      </ul>
+      <a href="/app" class="btn-plan">Get Started</a>
+    </div>
+    <div class="plan featured">
+      <div class="plan-badge">Best Value</div>
+      <div class="plan-name">Annual</div>
+      <div class="plan-price">$199.99<span>/yr</span></div>
+      <div class="plan-trial">✦ 14-day free trial included</div>
+      <ul class="plan-features">
+        <li>Unlimited trade logging</li>
+        <li>AI trade analysis</li>
+        <li>Pre &amp; post market journal</li>
+        <li>Prop firm CSV import</li>
+        <li>Psychology &amp; strategy analytics</li>
+        <li>Multi-account tracking</li>
+      </ul>
+      <a href="/app" class="btn-plan">Start Free Trial</a>
+    </div>
+  </div>
+
+  <p style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:28px;letter-spacing:.5px">
+    Secure payments via Stripe · Cancel anytime · Data synced across all devices
+  </p>
+</section>
+
+<!-- FOOTER -->
+<div class="divider"></div>
+<footer>
+  <div class="footer-logo">Edge<span>Wise</span></div>
+  <div class="footer-links">
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="/app">App</a>
+    <a href="mailto:support@edgewisetrader.com">Support</a>
+  </div>
+  <div class="footer-copy">© 2026 EdgeWise · Built for prop traders</div>
+</footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Journal tab switcher (demo only)
+document.querySelectorAll('.j-tab').forEach((tab, i, tabs) => {
+  tab.style.cursor = 'pointer';
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
