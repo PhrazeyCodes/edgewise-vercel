@@ -554,6 +554,27 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
 .field-group.c4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .field label { font-family: var(--mono); font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; }
+.custom-date-wrap { position:relative; }
+.del-trade-btn { background:none;border:none;color:var(--text4);font-size:11px;cursor:pointer;padding:3px 6px;border-radius:5px;transition:all .15s;line-height:1; }
+.del-trade-btn:hover { background:rgba(240,90,110,.12);color:var(--red); }
+
+.custom-date-btn { display:flex;align-items:center;gap:8px;width:100%;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:12px;padding:9px 11px;cursor:pointer;text-align:left;transition:border .15s; }
+.custom-date-btn:hover,.custom-date-btn:focus { border-color:var(--gold);background:var(--bg3);outline:none; }
+.custom-date-btn svg { color:var(--text3);flex-shrink:0; }
+.date-picker-panel { position:absolute;top:calc(100% + 6px);left:0;z-index:999;background:var(--bg2);border:1px solid var(--line2);border-radius:12px;padding:14px;min-width:260px;box-shadow:0 8px 32px rgba(0,0,0,.35); }
+.dp-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:10px; }
+.dp-nav { background:var(--bg3);border:none;color:var(--text2);font-size:18px;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .15s; }
+.dp-nav:hover { background:var(--bg4);color:var(--text); }
+.dp-month-label { font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:.8px; }
+.dp-dow-row { display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px; }
+.dp-dow-row span { font-family:var(--mono);font-size:9px;color:var(--text3);text-align:center;padding:3px 0;text-transform:uppercase;letter-spacing:.5px; }
+.dp-grid { display:grid;grid-template-columns:repeat(7,1fr);gap:2px; }
+.dp-day { font-family:var(--mono);font-size:11px;color:var(--text2);background:none;border:none;border-radius:6px;padding:6px 2px;cursor:pointer;text-align:center;transition:all .1s; }
+.dp-day:hover { background:var(--bg3);color:var(--text); }
+.dp-day.dp-today { color:var(--gold);font-weight:600; }
+.dp-day.dp-sel { background:var(--gold);color:#1a1500;font-weight:700;border-radius:7px; }
+.dp-day.dp-other { color:var(--text4); }
+.dp-day.dp-empty { cursor:default; }
 .field input, .field select, .field textarea {
   background: var(--bg2); border: 1px solid var(--line2);
   border-radius: 9px; color: var(--text); font-family: var(--mono);
@@ -1323,7 +1344,27 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
       <!-- TRADE TAB -->
       <div id="mtab-panel-trade">
         <div class="field-group c3">
-          <div class="field"><label>Date</label><input type="date" id="f-date"/></div>
+          <div class="field">
+            <label>Date</label>
+            <div class="custom-date-wrap" id="f-date-wrap">
+              <input type="hidden" id="f-date"/>
+              <button type="button" class="custom-date-btn" id="f-date-btn" onclick="toggleDatePicker()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span id="f-date-display">Today</span>
+              </button>
+              <div class="date-picker-panel" id="date-picker-panel" style="display:none">
+                <div class="dp-header">
+                  <button type="button" class="dp-nav" onclick="dpShift(-1)">&#8249;</button>
+                  <span class="dp-month-label" id="dp-month-label"></span>
+                  <button type="button" class="dp-nav" onclick="dpShift(1)">&#8250;</button>
+                </div>
+                <div class="dp-dow-row">
+                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                </div>
+                <div class="dp-grid" id="dp-grid"></div>
+              </div>
+            </div>
+          </div>
           <div class="field"><label>Account</label>
             <select id="f-account">
               <option value="">— Select —</option>
@@ -1671,7 +1712,7 @@ function renderDashboard(){
   document.getElementById('recent-table').innerHTML=recent.length?`
     <table class="tbl">
       <thead><tr><th>Date</th><th>Inst</th><th>Dir</th><th>P&L</th><th>R</th><th>Strategy</th><th>Emotion</th></tr></thead>
-      <tbody>${recent.map(t=>`<tr onclick="openModal(${t.id})">
+      <tbody>${recent.map(t=>`<tr onclick="openModal(${t.id})" style="position:relative">
         <td class="td-main">${t.date.slice(5)}</td>
         <td>${esc(t.instrument)}</td>
         <td><span class="chip chip-${t.direction==='Long'?'long':'short'}">${t.direction}</span></td>
@@ -1808,6 +1849,7 @@ function selectDay(dk){
         <td class="${t.r>=0?'td-r-pos':'td-r-neg'}">${fmtR(t.r)}</td>
         <td>${esc(t.strategy||'—')}</td>
         <td style="color:var(--gold)">${t.exec}/10</td>
+        <td onclick="event.stopPropagation()"><button class="del-trade-btn" onclick="deleteTrade(${t.id})" title="Delete trade">&#10005;</button></td>
       </tr>`).join('')}</tbody>
     </table>
   `;
@@ -1994,6 +2036,78 @@ function openModal(id=null){
 }function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
 document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))closeModal();});
 
+// ── Custom date picker ────────────────────────────────────────────────────
+let dpYear = new Date().getFullYear(), dpMonth = new Date().getMonth();
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function toggleDatePicker() {
+  const panel = document.getElementById('date-picker-panel');
+  const isOpen = panel.style.display !== 'none';
+  if (isOpen) { panel.style.display = 'none'; return; }
+  // Sync picker to current value
+  const cur = document.getElementById('f-date').value;
+  if (cur) { const d = new Date(cur+'T00:00:00'); dpYear = d.getFullYear(); dpMonth = d.getMonth(); }
+  else { dpYear = new Date().getFullYear(); dpMonth = new Date().getMonth(); }
+  renderDp();
+  panel.style.display = '';
+}
+
+function dpShift(dir) {
+  dpMonth += dir;
+  if (dpMonth > 11) { dpMonth = 0; dpYear++; }
+  if (dpMonth < 0)  { dpMonth = 11; dpYear--; }
+  renderDp();
+}
+
+function renderDp() {
+  document.getElementById('dp-month-label').textContent = MONTHS[dpMonth] + ' ' + dpYear;
+  const grid = document.getElementById('dp-grid');
+  const todayStr = today();
+  const selStr = document.getElementById('f-date').value;
+  const firstDay = new Date(dpYear, dpMonth, 1).getDay();
+  const daysInMonth = new Date(dpYear, dpMonth+1, 0).getDate();
+  let html = '';
+  for (let i = 0; i < firstDay; i++) html += '<button class="dp-day dp-empty" disabled></button>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dk = dpYear+'-'+String(dpMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const cls = ['dp-day', dk===todayStr?'dp-today':'', dk===selStr?'dp-sel':''].filter(Boolean).join(' ');
+    html += `<button type="button" class="${cls}" onclick="dpSelect('${dk}')">${d}</button>`;
+  }
+  grid.innerHTML = html;
+}
+
+function dpSelect(dk) {
+  document.getElementById('f-date').value = dk;
+  const d = new Date(dk+'T00:00:00');
+  const todayStr = today();
+  document.getElementById('f-date-display').textContent =
+    dk === todayStr ? 'Today' :
+    d.toLocaleDateString('en-US', { month:'short', day:'numeric', year: d.getFullYear()!==new Date().getFullYear()?'numeric':undefined });
+  document.getElementById('date-picker-panel').style.display = 'none';
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('f-date-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const panel = document.getElementById('date-picker-panel');
+    if (panel) panel.style.display = 'none';
+  }
+});
+
+// ── Delete trade ──────────────────────────────────────────────────────────
+async function deleteTrade(id) {
+  if (!confirm('Delete this trade? This cannot be undone.')) return;
+  S.trades = S.trades.filter(t => t.id !== id);
+  saveLocalTrades();
+  if (window.deleteTradeFB) await deleteTradeFB(id);
+  showToast('Trade deleted');
+  renderDashboard();
+  renderPage(activeTab);
+  // Re-render the day detail if journal is open
+  if (selDay) renderDay(selDay);
+}
+
 function switchModalTab(tab){
   ['trade','premarket','postmarket'].forEach(t=>{
     document.getElementById('mtab-'+t).classList.toggle('active', t===tab);
@@ -2003,6 +2117,7 @@ function switchModalTab(tab){
 
 function resetModal(){
   document.getElementById('f-date').value=today();
+  document.getElementById('f-date-display').textContent='Today';
   ['f-inst','f-dir','f-size','f-pnl','f-risk','f-pnl-pct','f-replay','f-account',
    'f-premarket-levels','f-premarket-thesis','f-premarket-risk',
    'f-postmarket-actual','f-postmarket-execution'].forEach(id=>{
@@ -2020,6 +2135,7 @@ function resetModal(){
 
 function fillModal(t){
   document.getElementById('f-date').value=t.date;
+  { const _d=new Date(t.date+'T00:00:00'); document.getElementById('f-date-display').textContent=_d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
   document.getElementById('f-account').value=t.account||'';
   document.getElementById('f-inst').value=t.instrument;
   document.getElementById('f-dir').value=t.direction;
