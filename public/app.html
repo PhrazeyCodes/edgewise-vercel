@@ -154,21 +154,25 @@
   // Map lowercase Supabase column names back to camelCase JS keys
   const COL_MAP_REV = Object.fromEntries(Object.entries(COL_MAP).map(([k,v])=>[v,k]));
 
-  async function compressShot(base64, maxW=1280, quality=0.72) {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = () => resolve(base64);
-      img.src = base64;
-    });
-  }
+  // Upload a single image file to Supabase Storage, returns public URL
+  window.uploadScreenshot = async (file) => {
+    if (!window._sbUser) return null;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${window._sbUser.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await _supabase.storage.from('screenshots').upload(path, file, { upsert: false });
+    if (error) { console.error('[Edgewise] Screenshot upload error:', error.message); return null; }
+    const { data } = _supabase.storage.from('screenshots').getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  // Delete a screenshot from Storage by its public URL
+  window.deleteScreenshot = async (url) => {
+    if (!window._sbUser || !url) return;
+    try {
+      const path = url.split('/screenshots/')[1];
+      if (path) await _supabase.storage.from('screenshots').remove([path]);
+    } catch(e) { console.error('[Edgewise] Screenshot delete error:', e); }
+  };
 
   window.saveTradeFB = async (trade) => {
     if (!window._sbUser) return;
@@ -178,8 +182,8 @@
         row[dbCol] = trade[jsKey];
       }
     });
-    const shots = Array.isArray(trade.screenshots) ? trade.screenshots : [];
-    row.screenshots = await Promise.all(shots.slice(0, 5).map(s => compressShot(s)));
+    // screenshots are already URLs at this point (uploaded during handleFiles)
+    row.screenshots = Array.isArray(trade.screenshots) ? trade.screenshots : [];
     const { error } = await _supabase.from('trades').upsert(row, { onConflict: 'id' });
     if (error) {
       console.error('[Edgewise] Supabase save error:', error.message, error.details, error.hint);
@@ -2255,12 +2259,24 @@ document.querySelectorAll('#analysis-accuracy-tags .tag').forEach(tag=>tag.addEv
   document.getElementById('f-r-display').textContent=(!isNaN(p)&&!isNaN(r)&&r>0)?fmtR(p/r):'—';
 }));
 
-function handleFiles(files){
-  Array.from(files).forEach(f=>{
-    const reader=new FileReader();
-    reader.onload=e=>{pendingShots.push(e.target.result);renderPreviews();};
-    reader.readAsDataURL(f);
-  });
+async function handleFiles(files){
+  const zone = document.getElementById('upload-zone');
+  zone.style.opacity = '0.6';
+  zone.style.pointerEvents = 'none';
+  for (const f of Array.from(files)) {
+    if (window.uploadScreenshot && window._sbUser) {
+      // Upload to Supabase Storage, store URL
+      const url = await window.uploadScreenshot(f);
+      if (url) { pendingShots.push(url); renderPreviews(); }
+    } else {
+      // Fallback: store base64 locally if not logged in
+      const reader = new FileReader();
+      reader.onload = e => { pendingShots.push(e.target.result); renderPreviews(); };
+      reader.readAsDataURL(f);
+    }
+  }
+  zone.style.opacity = '';
+  zone.style.pointerEvents = '';
 }
 function handleDrop(e){
   e.preventDefault(); document.getElementById('upload-zone').classList.remove('drag');
