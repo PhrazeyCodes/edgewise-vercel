@@ -138,12 +138,17 @@
   // ── Supabase data helpers ──────────────────────────────────────────────
   window.saveTradeFB = async (trade) => {
     if (!window._sbUser) return;
-    const { screenshots, ...rest } = trade;
-    const row = { ...rest, screenshots: [], user_id: window._sbUser.id };
+    // Only send columns that exist in the Supabase schema
+    const SUPABASE_COLS = ['id','user_id','date','account','instrument','direction','size',
+      'entryTime','exitTime','pnl','risk','r','pnlPct','strategy','emotion','exec',
+      'reasoning','notes','replay','dayMarkers','screenshots',
+      'marketBias','premarketLevels','premarketThesis','premarketRisk',
+      'analysisAccuracy','postmarketActual','postmarketExecution'];
+    const row = { user_id: window._sbUser.id, screenshots: [] };
+    SUPABASE_COLS.forEach(k => { if (k !== 'user_id' && k !== 'screenshots' && trade[k] !== undefined) row[k] = trade[k]; });
     const { error } = await _supabase.from('trades').upsert(row, { onConflict: 'id' });
     if (error) {
       console.error('[Edgewise] Supabase save error:', error.message, error.details, error.hint);
-      if (typeof showToast === 'function') showToast('Cloud save failed: ' + error.message);
     }
   };
 
@@ -2263,7 +2268,7 @@ async function saveTrade(){
   else S.trades.push(t);
 
   saveLocalTrades();
-  if(window.saveTradeFB) await saveTradeFB(t);
+  if(window.saveTradeFB) try { await saveTradeFB(t); } catch(e) { console.error('[Edgewise] save error:', e); }
 
   const wasEdit = !!editId;
   editId = null;
