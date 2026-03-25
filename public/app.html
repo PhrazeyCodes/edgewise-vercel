@@ -1698,6 +1698,7 @@ function openImportSheet() {
 function closeImportSheet() {
   document.getElementById('import-overlay').style.display = 'none';
   document.body.style.overflow = '';
+  impReset();
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────
@@ -3126,6 +3127,8 @@ function impReset() {
   document.getElementById('imp-btn2').disabled = true;
   document.getElementById('imp-btn1').disabled = true;
   document.querySelectorAll('.imp-firm-btn').forEach(b=>b.classList.remove('sel'));
+  const fileInput = document.getElementById('imp-file');
+  if (fileInput) fileInput.value = '';
   impGoStep(1);
 }
 
