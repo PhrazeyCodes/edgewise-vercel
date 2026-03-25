@@ -2024,7 +2024,7 @@ function openModal(id=null){
   editId=id; pendingShots=[];
   document.getElementById('upload-previews').innerHTML='';
   if(id){
-    const t=S.trades.find(x=>x.id===id);
+    const t=S.trades.find(x=>String(x.id)===String(id));
     if(t) fillModal(t);
     document.getElementById('modal-title').textContent='Edit Trade';
   } else {
