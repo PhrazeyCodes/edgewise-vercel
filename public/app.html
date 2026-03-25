@@ -2097,14 +2097,14 @@ document.addEventListener('click', function(e) {
 // ── Delete trade ──────────────────────────────────────────────────────────
 async function deleteTrade(id) {
   if (!confirm('Delete this trade? This cannot be undone.')) return;
-  S.trades = S.trades.filter(t => t.id !== id);
+  S.trades = S.trades.filter(t => String(t.id) !== String(id));
   saveLocalTrades();
   if (window.deleteTradeFB) await deleteTradeFB(id);
   showToast('Trade deleted');
   renderDashboard();
   renderPage(activeTab);
   // Re-render the day detail if journal is open
-  if (selDay) renderDay(selDay);
+  if (selDay) selectDay(selDay);
 }
 
 function switchModalTab(tab){
@@ -2254,8 +2254,12 @@ async function saveTrade(){
     postmarketActual: document.getElementById('f-postmarket-actual').value,
     postmarketExecution: document.getElementById('f-postmarket-execution').value,
     dayMarkers: dm, screenshots: pendingShots,
+    entryTime: (editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).entryTime : '') || '',
+    exitTime:  (editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).exitTime  : '') || '',
+    openPrice: (editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).openPrice : '') || '',
+    closePrice:(editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).closePrice: '') || '',
   };
-  if(editId) S.trades=S.trades.map(x=>x.id===editId?t:x);
+  if(editId) S.trades=S.trades.map(x=>String(x.id)===String(editId)?t:x);
   else S.trades.push(t);
 
   saveLocalTrades();
@@ -3037,7 +3041,7 @@ function impRowToTrade(row) {
   const parseTime = s => { const m=(s||'').match(/(\d{1,2}):(\d{2})/); return m ? m[1].padStart(2,'0')+':'+m[2] : ''; };
 
   return {
-    id: Date.now() + Math.random(),
+    id: Date.now() + Math.floor(Math.random() * 1000),
     date: dateStr,
     account: row['AccountName'] || '',
     instrument: symbol,
