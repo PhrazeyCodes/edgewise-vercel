@@ -136,16 +136,32 @@
   };
 
   // ── Supabase data helpers ──────────────────────────────────────────────
+  // Map camelCase JS keys to lowercase Supabase column names
+  const COL_MAP = {
+    id:'id', user_id:'user_id', date:'date', account:'account',
+    instrument:'instrument', direction:'direction', size:'size',
+    entryTime:'entrytime', exitTime:'exittime',
+    openPrice:'openprice', closePrice:'closeprice',
+    pnl:'pnl', risk:'risk', r:'r', pnlPct:'pnlpct',
+    strategy:'strategy', emotion:'emotion', exec:'exec',
+    reasoning:'reasoning', notes:'notes', replay:'replay',
+    dayMarkers:'daymarkers', screenshots:'screenshots',
+    marketBias:'marketbias', premarketLevels:'premarketlevels',
+    premarketThesis:'premarketthesis', premarketRisk:'premarketrisk',
+    analysisAccuracy:'analysisaccuracy', postmarketActual:'postmarketactual',
+    postmarketExecution:'postmarketexecution'
+  };
+  // Map lowercase Supabase column names back to camelCase JS keys
+  const COL_MAP_REV = Object.fromEntries(Object.entries(COL_MAP).map(([k,v])=>[v,k]));
+
   window.saveTradeFB = async (trade) => {
     if (!window._sbUser) return;
-    // Only send columns that exist in the Supabase schema
-    const SUPABASE_COLS = ['id','user_id','date','account','instrument','direction','size',
-      'entryTime','exitTime','pnl','risk','r','pnlPct','strategy','emotion','exec',
-      'reasoning','notes','replay','dayMarkers','screenshots',
-      'marketBias','premarketLevels','premarketThesis','premarketRisk',
-      'analysisAccuracy','postmarketActual','postmarketExecution'];
     const row = { user_id: window._sbUser.id, screenshots: [] };
-    SUPABASE_COLS.forEach(k => { if (k !== 'user_id' && k !== 'screenshots' && trade[k] !== undefined) row[k] = trade[k]; });
+    Object.entries(COL_MAP).forEach(([jsKey, dbCol]) => {
+      if (jsKey !== 'user_id' && jsKey !== 'screenshots' && trade[jsKey] !== undefined) {
+        row[dbCol] = trade[jsKey];
+      }
+    });
     const { error } = await _supabase.from('trades').upsert(row, { onConflict: 'id' });
     if (error) {
       console.error('[Edgewise] Supabase save error:', error.message, error.details, error.hint);
@@ -168,7 +184,15 @@
       if (typeof showToast === 'function') showToast('Could not load trades: ' + loadErr.message);
       return;
     }
-    S.trades = data || [];
+    // Remap lowercase DB columns back to camelCase JS keys
+    S.trades = (data || []).map(row => {
+      const t = {};
+      Object.entries(row).forEach(([dbCol, val]) => {
+        const jsKey = COL_MAP_REV[dbCol] || dbCol;
+        t[jsKey] = val;
+      });
+      return t;
+    });
     saveLocalTrades();
     if (typeof activeTab !== 'undefined') renderPage(activeTab);
     renderDashboard();
