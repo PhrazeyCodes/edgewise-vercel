@@ -154,14 +154,32 @@
   // Map lowercase Supabase column names back to camelCase JS keys
   const COL_MAP_REV = Object.fromEntries(Object.entries(COL_MAP).map(([k,v])=>[v,k]));
 
+  async function compressShot(base64, maxW=1280, quality=0.72) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(base64);
+      img.src = base64;
+    });
+  }
+
   window.saveTradeFB = async (trade) => {
     if (!window._sbUser) return;
-    const row = { user_id: window._sbUser.id, screenshots: [] };
+    const row = { user_id: window._sbUser.id };
     Object.entries(COL_MAP).forEach(([jsKey, dbCol]) => {
       if (jsKey !== 'user_id' && jsKey !== 'screenshots' && trade[jsKey] !== undefined) {
         row[dbCol] = trade[jsKey];
       }
     });
+    const shots = Array.isArray(trade.screenshots) ? trade.screenshots : [];
+    row.screenshots = await Promise.all(shots.slice(0, 5).map(s => compressShot(s)));
     const { error } = await _supabase.from('trades').upsert(row, { onConflict: 'id' });
     if (error) {
       console.error('[Edgewise] Supabase save error:', error.message, error.details, error.hint);
