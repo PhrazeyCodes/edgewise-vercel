@@ -149,7 +149,8 @@
     marketBias:'marketbias', premarketLevels:'premarketlevels',
     premarketThesis:'premarketthesis', premarketRisk:'premarketrisk',
     analysisAccuracy:'analysisaccuracy', postmarketActual:'postmarketactual',
-    postmarketExecution:'postmarketexecution'
+    postmarketExecution:'postmarketexecution',
+    session:'session', checklistItems:'checklistitems'
   };
   // Map lowercase Supabase column names back to camelCase JS keys
   const COL_MAP_REV = Object.fromEntries(Object.entries(COL_MAP).map(([k,v])=>[v,k]));
@@ -647,6 +648,65 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
 .tag.sel-red { border-color: var(--red); color: var(--red); background: rgba(224,92,107,.07); }
 .tag.sel-blue { border-color: var(--blue); color: var(--blue); background: rgba(91,141,238,.07); }
 
+/* ─── Pre-trade checklist ─────────────────────────────────────────────── */
+.checklist-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--bg2); cursor: pointer; transition: all .15s;
+  user-select: none; -webkit-user-select: none;
+}
+.checklist-item:hover { border-color: var(--line2); background: var(--bg3); }
+.checklist-item.checked { border-color: rgba(57,196,122,.3); background: rgba(57,196,122,.05); }
+.checklist-item.checked .cl-box { background: var(--green); border-color: var(--green); }
+.checklist-item.checked .cl-box::after { content: '✓'; color: #fff; font-size: 10px; line-height: 1; }
+.checklist-item.unchecked-warn { border-color: rgba(240,90,110,.3); background: rgba(240,90,110,.04); }
+.cl-box {
+  width: 18px; height: 18px; min-width: 18px; border-radius: 5px;
+  border: 1.5px solid var(--line2); background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; margin-top: 1px;
+}
+.cl-text { font-family: var(--body); font-size: 12px; color: var(--text2); line-height: 1.4; flex: 1; }
+.checklist-item.checked .cl-text { color: var(--text3); }
+.cl-score {
+  font-family: var(--mono); font-size: 10px; padding: 2px 7px;
+  border-radius: 5px; white-space: nowrap; flex-shrink: 0;
+}
+.cl-score.pass { color: var(--green); background: rgba(57,196,122,.1); }
+.cl-score.fail { color: var(--red); background: rgba(240,90,110,.1); }
+.cl-score.neutral { color: var(--text3); background: var(--bg3); }
+.checklist-banner {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 9px; border: 1px solid var(--line2); background: var(--bg2);
+  font-family: var(--mono); font-size: 11px; margin-bottom: 4px;
+}
+.checklist-banner.all-pass { border-color: rgba(57,196,122,.3); background: rgba(57,196,122,.06); color: var(--green); }
+.checklist-banner.partial { border-color: rgba(212,168,75,.3); background: rgba(212,168,75,.06); color: var(--gold); }
+.checklist-banner.all-fail { border-color: rgba(240,90,110,.3); background: rgba(240,90,110,.06); color: var(--red); }
+.cl-manage-item {
+  display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+  border-radius: 8px; border: 1px solid var(--line); background: var(--bg2);
+}
+.cl-manage-item input[type=text] {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: var(--body); font-size: 12px; color: var(--text);
+}
+.cl-drag-handle { color: var(--text4); cursor: grab; font-size: 13px; flex-shrink: 0; }
+.cl-del-btn {
+  background: none; border: none; color: var(--text4); cursor: pointer;
+  font-size: 14px; padding: 2px 4px; border-radius: 4px; transition: color .15s;
+}
+.cl-del-btn:hover { color: var(--red); }
+
+/* Journal day: checklist badge */
+.cl-badge {
+  display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono);
+  font-size: 9px; padding: 2px 7px; border-radius: 5px; font-weight: 600;
+}
+.cl-badge.pass { color: var(--green); background: rgba(57,196,122,.1); }
+.cl-badge.fail { color: var(--red); background: rgba(240,90,110,.1); }
+.cl-badge.partial { color: var(--gold); background: rgba(212,168,75,.1); }
+
 /* Exec slider */
 .exec-wrap { display: flex; align-items: center; gap: 12px; }
 .exec-slider {
@@ -1038,6 +1098,10 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           Manage subscription
         </button>
+        <button class="user-menu-btn" style="color:var(--text2)" onclick="openChecklistManager();closeUserMenu()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Pre-trade checklist
+        </button>
         <button class="user-menu-btn" onclick="signOutUser();closeUserMenu()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sign out
@@ -1107,8 +1171,20 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
           <div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Day of Week</div><div id="dow-bars"></div></div>
           <div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Emotion</div><div id="emo-bars"></div></div>
           <div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Instrument</div><div id="inst-bars"></div></div>
-          <div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Time of Day</div><div id="tod-bars"></div></div>
+          <div><div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Session</div><div id="session-bars"></div></div>
         </div>
+      </div>
+
+      <!-- Checklist Adherence -->
+      <div class="card mb14" id="dash-cl-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
+          <div>
+            <div class="card-title">Checklist Adherence</div>
+            <div class="card-sub">Rule-following vs. P&L outcomes</div>
+          </div>
+          <button class="btn-log" style="font-size:11px;padding:6px 14px;flex-shrink:0" onclick="openChecklistManager()">Edit checklist</button>
+        </div>
+        <div id="cl-adherence-content" style="margin-top:14px"></div>
       </div>
 
       <!-- Streaks (folded from Progress) -->
@@ -1388,6 +1464,7 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
 
       <div id="modal-tabs" style="display:flex;gap:2px;background:var(--bg2);border-radius:10px;padding:3px;margin-bottom:20px">
         <button class="modal-tab active" onclick="switchModalTab('trade')" id="mtab-trade">Trade</button>
+        <button class="modal-tab" onclick="switchModalTab('checklist')" id="mtab-checklist">Checklist</button>
         <button class="modal-tab" onclick="switchModalTab('premarket')" id="mtab-premarket">Pre-Market</button>
         <button class="modal-tab" onclick="switchModalTab('postmarket')" id="mtab-postmarket">Post-Market</button>
       </div>
@@ -1462,8 +1539,37 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
           <div class="field"><label>P&amp;L ($)</label><input type="number" id="f-pnl" placeholder="+250" step="0.01"/></div>
         </div>
 
-        <div class="field-group c3">
+        <div class="field-group c2">
+          <div class="field"><label>Session</label>
+            <select id="f-session">
+              <option value="">— Select session —</option>
+              <optgroup label="Futures / US">
+                <option value="Asia">Asia (Overnight / Globex)</option>
+                <option value="London Open">London Open</option>
+                <option value="Pre-Market">Pre-Market (7–9:30 ET)</option>
+                <option value="New York Open">New York Open (9:30–11 ET)</option>
+                <option value="New York AM">New York AM (9:30–12 ET)</option>
+                <option value="Lunch / Chop">Lunch / Chop (12–2 ET)</option>
+                <option value="New York PM">New York PM (2–4 ET)</option>
+                <option value="Power Hour">Power Hour (3–4 ET)</option>
+                <option value="After Hours">After Hours</option>
+              </optgroup>
+              <optgroup label="Forex">
+                <option value="Tokyo">Tokyo Session</option>
+                <option value="Frankfurt">Frankfurt Open</option>
+                <option value="London">London Session</option>
+                <option value="New York Forex">New York (Forex)</option>
+                <option value="London/NY Overlap">London / NY Overlap</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="Custom">Custom</option>
+              </optgroup>
+            </select>
+          </div>
           <div class="field"><label>Max Risk ($)</label><input type="number" id="f-risk" placeholder="e.g. 100" step="0.01"/></div>
+        </div>
+
+        <div class="field-group c2">
           <div class="field"><label>R-Multiple</label><div class="f-r-val" id="f-r-display">—</div></div>
           <div class="field">
             <label>Execution Quality</label>
@@ -1519,6 +1625,23 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
             <div class="upload-lbl">Drop charts here or click to upload</div>
           </div>
           <div class="upload-previews" id="upload-previews"></div>
+        </div>
+      </div>
+
+      <!-- CHECKLIST TAB -->
+      <div id="mtab-panel-checklist" style="display:none">
+        <div id="cl-empty-msg" style="display:none;padding:28px 0;text-align:center">
+          <div style="font-size:28px;margin-bottom:10px;opacity:.3">☑️</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.7">No checklist items yet.<br/>Go to <strong style="color:var(--gold)">Settings → Checklist</strong> to build your pre-trade rules.</div>
+          <button class="btn-save" style="margin:14px auto 0;display:block;padding:8px 18px;font-size:12px" onclick="closeModal();openChecklistManager()">Set up checklist →</button>
+        </div>
+        <div id="cl-list-wrap">
+          <div id="cl-banner" class="checklist-banner" style="display:none"></div>
+          <div id="cl-items" style="display:flex;flex-direction:column;gap:7px;margin-top:4px"></div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">Check all items before placing your trade.</div>
+            <button onclick="checkAllCL()" style="background:var(--bg3);border:1px solid var(--line2);border-radius:7px;padding:5px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);cursor:pointer;transition:all .15s" onmouseover="this.style.background='var(--bg4)'" onmouseout="this.style.background='var(--bg3)'">Check all</button>
+          </div>
         </div>
       </div>
 
@@ -1580,6 +1703,33 @@ body { font-family: var(--body); color: var(--text); height: 100vh; overflow: hi
       <div class="modal-footer">
         <button class="btn-cancel" onclick="closeModal()">Cancel</button>
         <button class="btn-save" onclick="saveTrade()">Save trade</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Checklist Manager Modal -->
+<div class="overlay" id="cl-manager-overlay">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-hd">
+      <h2>Pre-Trade Checklist</h2>
+      <button class="modal-close" onclick="closeChecklistManager()">×</button>
+    </div>
+    <div class="modal-body" style="gap:14px">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);line-height:1.6">
+        Define the rules you must verify before taking any trade. Each item will appear as a checkbox when logging a trade — unchecked items are flagged in your journal so you can see if rule-breaking correlates with losses.
+      </div>
+      <div id="cl-manager-items" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input type="text" id="cl-new-input" placeholder="e.g. Bias confirmed on higher timeframe…" style="flex:1;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;color:var(--text);font-family:var(--body);font-size:12px;padding:9px 11px;outline:none;transition:border .15s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor=''" onkeydown="if(event.key==='Enter')addCLItem()"/>
+        <button class="btn-save" style="flex-shrink:0;padding:8px 16px;font-size:12px" onclick="addCLItem()">+ Add</button>
+      </div>
+      <div style="padding:10px 14px;background:rgba(212,168,75,.06);border:1px solid rgba(212,168,75,.15);border-radius:8px">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Starter template</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="cl-template-tags"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeChecklistManager()">Done</button>
       </div>
     </div>
   </div>
@@ -1763,16 +1913,28 @@ function renderDashboard(){
   const recent=S.trades.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
   document.getElementById('recent-table').innerHTML=recent.length?`
     <table class="tbl">
-      <thead><tr><th>Date</th><th>Inst</th><th>Dir</th><th>P&L</th><th>R</th><th>Strategy</th><th>Emotion</th></tr></thead>
-      <tbody>${recent.map(t=>`<tr onclick="openModal(${t.id})" style="position:relative">
-        <td class="td-main">${t.date.slice(5)}</td>
-        <td>${esc(t.instrument)}</td>
-        <td><span class="chip chip-${t.direction==='Long'?'long':'short'}">${t.direction}</span></td>
-        <td class="${t.pnl>=0?'td-pnl-pos':'td-pnl-neg'}">${fmtPnl(t.pnl)}</td>
-        <td class="${t.r>=0?'td-r-pos':'td-r-neg'}">${fmtR(t.r)}</td>
-        <td>${esc(t.strategy||'—')}</td>
-        <td><span class="chip chip-emo">${esc(t.emotion||'—')}</span></td>
-      </tr>`).join('')}</tbody>
+      <thead><tr><th>Date</th><th>Inst</th><th>Dir</th><th>Session</th><th>P&L</th><th>R</th><th>Strategy</th><th>Checklist</th></tr></thead>
+      <tbody>${recent.map(t=>{
+        const clItems=t.checklistItems||[];
+        const checked=clItems.filter(i=>i.checked).length;
+        const total=clItems.length;
+        let clBadge='<span style="color:var(--text4);font-family:var(--mono);font-size:10px">—</span>';
+        if(total>0){
+          const pct=checked/total;
+          const cls=pct===1?'pass':pct===0?'fail':'partial';
+          clBadge=`<span class="cl-badge ${cls}">${pct===1?'All ✓':`${checked}/${total}`}</span>`;
+        }
+        return `<tr onclick="openModal(${t.id})" style="position:relative">
+          <td class="td-main">${t.date.slice(5)}</td>
+          <td>${esc(t.instrument)}</td>
+          <td><span class="chip chip-${t.direction==='Long'?'long':'short'}">${t.direction}</span></td>
+          <td style="font-family:var(--mono);font-size:10px;color:var(--text3);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.session||'—')}</td>
+          <td class="${t.pnl>=0?'td-pnl-pos':'td-pnl-neg'}">${fmtPnl(t.pnl)}</td>
+          <td class="${t.r>=0?'td-r-pos':'td-r-neg'}">${fmtR(t.r)}</td>
+          <td>${esc(t.strategy||'—')}</td>
+          <td>${clBadge}</td>
+        </tr>`;
+      }).join('')}</tbody>
     </table>
   `:`<div style="text-align:center;padding:32px 16px">
     <div style="font-size:28px;margin-bottom:12px;opacity:.3">📋</div>
@@ -1785,6 +1947,8 @@ function renderDashboard(){
   // Streak mini-banner on dashboard
   // Analytics bars (folded into dashboard)
   renderAnalyticsBars();
+  // Checklist adherence
+  renderChecklistAdherence();
   // Streaks
   renderStreaks();
   // Challenges
@@ -1893,16 +2057,32 @@ function selectDay(dk){
   if(!trades.length){document.getElementById('day-content').innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:16px 0">No trades on this day.</div>`;return;}
   document.getElementById('day-content').innerHTML=`
     <table class="tbl">
-      <thead><tr><th>Inst</th><th>Dir</th><th>P&L</th><th>R</th><th>Strategy</th><th>Exec</th></tr></thead>
-      <tbody>${trades.map(t=>`<tr onclick="openModal(${t.id})">
-        <td class="td-main">${esc(t.instrument)}</td>
-        <td><span class="chip chip-${t.direction==='Long'?'long':'short'}">${t.direction}</span></td>
-        <td class="${t.pnl>=0?'td-pnl-pos':'td-pnl-neg'}">${fmtPnl(t.pnl)}</td>
-        <td class="${t.r>=0?'td-r-pos':'td-r-neg'}">${fmtR(t.r)}</td>
-        <td>${esc(t.strategy||'—')}</td>
-        <td style="color:var(--gold)">${t.exec}/10</td>
-        <td onclick="event.stopPropagation()"><button class="del-trade-btn" onclick="deleteTrade(${t.id})" title="Delete trade">&#10005;</button></td>
-      </tr>`).join('')}</tbody>
+      <thead><tr><th>Inst</th><th>Dir</th><th>Session</th><th>P&L</th><th>R</th><th>Strategy</th><th>Checklist</th><th>Exec</th></tr></thead>
+      <tbody>${trades.map(t=>{
+        const clItems=t.checklistItems||[];
+        const checked=clItems.filter(i=>i.checked).length;
+        const total=clItems.length;
+        let clBadge='';
+        if(total>0){
+          const pct=checked/total;
+          const cls=pct===1?'pass':pct===0?'fail':'partial';
+          const label=pct===1?'All ✓':`${checked}/${total}`;
+          clBadge=`<span class="cl-badge ${cls}">${label}</span>`;
+        } else {
+          clBadge=`<span style="font-family:var(--mono);font-size:10px;color:var(--text4)">—</span>`;
+        }
+        return `<tr onclick="openModal(${t.id})">
+          <td class="td-main">${esc(t.instrument)}</td>
+          <td><span class="chip chip-${t.direction==='Long'?'long':'short'}">${t.direction}</span></td>
+          <td style="font-family:var(--mono);font-size:10px;color:var(--text3)">${esc(t.session||'—')}</td>
+          <td class="${t.pnl>=0?'td-pnl-pos':'td-pnl-neg'}">${fmtPnl(t.pnl)}</td>
+          <td class="${t.r>=0?'td-r-pos':'td-r-neg'}">${fmtR(t.r)}</td>
+          <td>${esc(t.strategy||'—')}</td>
+          <td onclick="event.stopPropagation()">${clBadge}</td>
+          <td style="color:var(--gold)">${t.exec}/10</td>
+          <td onclick="event.stopPropagation()"><button class="del-trade-btn" onclick="deleteTrade(${t.id})" title="Delete trade">&#10005;</button></td>
+        </tr>`;
+      }).join('')}</tbody>
     </table>
   `;
 }
@@ -1949,19 +2129,23 @@ function renderAnalyticsBars(){
     </div>
   `).join('');
 
-  // Time of day
-  const todMap=Array(24).fill(null).map(()=>({w:0,t:0}));
-  S.trades.forEach(t=>{if(!t.entryTime)return;const h=parseInt(t.entryTime.split(':')[0]);todMap[h].t++;if(t.pnl>0)todMap[h].w++;});
-  const active=todMap.map((h,i)=>({h:i,...h})).filter(h=>h.t>0);
-  const todMax=Math.max(...active.map(h=>h.t),1);
-  document.getElementById('tod-bars').innerHTML=active.length?active.map(h=>{
-    const wr=h.w/h.t;
-    return `<div class="bar-row">
-      <div class="bar-label">${String(h.h).padStart(2,'0')}:00 <span style="color:var(--text3)">(${h.t}x)</span></div>
-      <div class="bar-track"><div class="bar-fill" style="width:${wr*100}%;background:${wr>=.5?'var(--green)':'var(--red)'}"></div></div>
-      <div class="bar-val" style="color:${wr>=.5?'var(--green)':'var(--red)'}">${Math.round(wr*100)}%</div>
-    </div>`;
-  }).join(''):'<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">No time data</div>';
+  // Session P&L
+  const sessMap={};
+  S.trades.forEach(t=>{if(!t.session)return;if(!sessMap[t.session])sessMap[t.session]={pnl:0,w:0,t:0};sessMap[t.session].pnl+=t.pnl;sessMap[t.session].t++;if(t.pnl>0)sessMap[t.session].w++;});
+  const sessEl=document.getElementById('session-bars');
+  if(sessEl){
+    if(!Object.keys(sessMap).length){sessEl.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">No session data yet</div>';}
+    else {
+      const sessMax=Math.max(...Object.values(sessMap).map(v=>Math.abs(v.pnl)),1);
+      sessEl.innerHTML=Object.entries(sessMap).sort((a,b)=>b[1].pnl-a[1].pnl).map(([sess,d])=>`
+        <div class="bar-row">
+          <div class="bar-label" title="${esc(sess)}">${esc(sess)} <span style="color:var(--text3)">(${d.t})</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.abs(d.pnl)/sessMax*100}%;background:${d.pnl>=0?'var(--green)':'var(--red)'}"></div></div>
+          <div class="bar-val" style="color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtPnl(d.pnl)}</div>
+        </div>
+      `).join('');
+    }
+  }
 }
 
 // ── AI Coach ───────────────────────────────────────────────────────────────
@@ -2160,16 +2344,17 @@ async function deleteTrade(id) {
 }
 
 function switchModalTab(tab){
-  ['trade','premarket','postmarket'].forEach(t=>{
-    document.getElementById('mtab-'+t).classList.toggle('active', t===tab);
-    document.getElementById('mtab-panel-'+t).style.display = t===tab ? '' : 'none';
+  ['trade','checklist','premarket','postmarket'].forEach(t=>{
+    const btn=document.getElementById('mtab-'+t); if(btn) btn.classList.toggle('active', t===tab);
+    const panel=document.getElementById('mtab-panel-'+t); if(panel) panel.style.display = t===tab ? '' : 'none';
   });
+  if(tab==='checklist') renderCLModal();
 }
 
 function resetModal(){
   document.getElementById('f-date').value=today();
   document.getElementById('f-date-display').textContent='Today';
-  ['f-inst','f-dir','f-size','f-pnl','f-risk','f-pnl-pct','f-replay','f-account',
+  ['f-inst','f-dir','f-size','f-pnl','f-risk','f-pnl-pct','f-replay','f-account','f-session',
    'f-premarket-levels','f-premarket-thesis','f-premarket-risk',
    'f-postmarket-actual','f-postmarket-execution'].forEach(id=>{
     const el=document.getElementById(id); if(!el) return;
@@ -2181,6 +2366,8 @@ function resetModal(){
   document.getElementById('f-exec').style.setProperty('--val', ((5-1)/9*100));
   document.getElementById('f-r-display').textContent='—';
   document.querySelectorAll('#emo-tags .tag,#dm-tags .tag,#bias-tags .tag,#analysis-accuracy-tags .tag').forEach(t=>t.className='tag');
+  // Reset checklist state for new trade
+  window._pendingCL = null;
   switchModalTab('trade');
 }
 
@@ -2200,6 +2387,7 @@ function fillModal(t){
   document.getElementById('f-r-display').textContent=t.r?fmtR(t.r):'—';
   document.getElementById('f-replay').value=t.replay||'';
   document.getElementById('f-strategy-input').value=t.strategy||'';
+  const sessEl=document.getElementById('f-session'); if(sessEl) sessEl.value=t.session||'';
   document.getElementById('f-premarket-levels').value=t.premarketLevels||'';
   document.getElementById('f-premarket-thesis').value=t.premarketThesis||'';
   document.getElementById('f-premarket-risk').value=t.premarketRisk||'';
@@ -2212,6 +2400,8 @@ function fillModal(t){
   });
   document.querySelectorAll('#bias-tags .tag').forEach(tag=>{ tag.className='tag'; if(tag.dataset.v===t.marketBias) tag.classList.add('sel'); });
   document.querySelectorAll('#analysis-accuracy-tags .tag').forEach(tag=>{ tag.className='tag'; if(tag.dataset.v===t.analysisAccuracy) tag.classList.add('sel'); });
+  // Restore checklist state from saved trade
+  window._pendingCL = Array.isArray(t.checklistItems) ? JSON.parse(JSON.stringify(t.checklistItems)) : null;
   pendingShots=t.screenshots||[];
   renderPreviews();
   switchModalTab('trade');
@@ -2297,6 +2487,8 @@ async function saveTrade(){
   const strat=document.getElementById('f-strategy-input').value.trim();
   const emo=document.querySelector('#emo-tags .tag.sel')?.dataset.v||'';
   const dm=[...document.querySelectorAll('#dm-tags .tag[class*="sel-"]')].map(t=>t.dataset.v);
+  // Build checklist snapshot from current _pendingCL state
+  const clItems = window._pendingCL ? JSON.parse(JSON.stringify(window._pendingCL)) : loadCLItems().map(item=>({...item, checked:false}));
   const t={
     id: editId||Date.now(),
     date: document.getElementById('f-date').value||today(),
@@ -2309,6 +2501,7 @@ async function saveTrade(){
     pnlPct: parseFloat(document.getElementById('f-pnl-pct')?.value)||0,
     strategy: strat, emotion: emo,
     exec: parseInt(document.getElementById('f-exec').value)||5,
+    session: document.getElementById('f-session')?.value||'',
     replay: document.getElementById('f-replay').value,
     marketBias: document.querySelector('#bias-tags .tag.sel')?.dataset.v||'',
     premarketLevels: document.getElementById('f-premarket-levels').value,
@@ -2317,6 +2510,7 @@ async function saveTrade(){
     analysisAccuracy: document.querySelector('#analysis-accuracy-tags .tag.sel')?.dataset.v||'',
     postmarketActual: document.getElementById('f-postmarket-actual').value,
     postmarketExecution: document.getElementById('f-postmarket-execution').value,
+    checklistItems: clItems,
     dayMarkers: dm, screenshots: pendingShots,
     entryTime: (editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).entryTime : '') || '',
     exitTime:  (editId ? (S.trades.find(x=>String(x.id)===String(editId))||{}).exitTime  : '') || '',
@@ -2331,14 +2525,248 @@ async function saveTrade(){
 
   const wasEdit = !!editId;
   editId = null;
+  window._pendingCL = null;
 
+  // Warn if checklist items were not fully checked
+  const unchecked = clItems.filter(i=>!i.checked).length;
   closeModal();
-  showToast(wasEdit?'Trade updated':'Trade saved ✓');
+  if(unchecked>0 && clItems.length>0){
+    showToast(`Trade saved — ${unchecked} checklist item${unchecked!==1?'s':''} unchecked ⚠️`);
+  } else {
+    showToast(wasEdit?'Trade updated':'Trade saved ✓');
+  }
   renderDashboard();
   renderPage(activeTab);
 }
 
-// ── Theme ──────────────────────────────────────────────────────────────────
+// ── Checklist Adherence Dashboard Block ───────────────────────────────────
+function renderChecklistAdherence(){
+  const el = document.getElementById('cl-adherence-content');
+  const card = document.getElementById('dash-cl-card');
+  if(!el) return;
+  const clItems = loadCLItems();
+  const tradesWithCL = S.trades.filter(t=>Array.isArray(t.checklistItems)&&t.checklistItems.length>0);
+  if(!clItems.length){ if(card) card.style.display='none'; return; }
+  if(card) card.style.display='';
+  if(!tradesWithCL.length){
+    el.innerHTML=`<div style="font-family:var(--mono);font-size:11px;color:var(--text3)">No trades with checklist data yet. Log a trade and check your items first.</div>`;
+    return;
+  }
+  const full    = tradesWithCL.filter(t=>t.checklistItems.length&&t.checklistItems.every(i=>i.checked));
+  const none    = tradesWithCL.filter(t=>t.checklistItems.length&&t.checklistItems.every(i=>!i.checked));
+  const partial = tradesWithCL.filter(t=>!t.checklistItems.every(i=>i.checked)&&!t.checklistItems.every(i=>!i.checked));
+  const pnlOf = arr => arr.reduce((a,t)=>a+t.pnl,0);
+  const wrOf  = arr => arr.length ? arr.filter(t=>t.pnl>0).length/arr.length : 0;
+  const groups=[
+    {label:'All items checked',cls:'var(--green)',bg:'rgba(57,196,122,.07)',border:'rgba(57,196,122,.2)',trades:full},
+    {label:'Partial checklist', cls:'var(--gold)', bg:'rgba(212,168,75,.07)', border:'rgba(212,168,75,.2)', trades:partial},
+    {label:'No items checked',  cls:'var(--red)',  bg:'rgba(240,90,110,.07)',border:'rgba(240,90,110,.2)', trades:none},
+  ].filter(g=>g.trades.length>0);
+
+  const itemMap={};
+  tradesWithCL.forEach(t=>{
+    t.checklistItems.forEach(ci=>{
+      if(!itemMap[ci.text]) itemMap[ci.text]={checked:0,total:0};
+      itemMap[ci.text].total++;
+      if(ci.checked) itemMap[ci.text].checked++;
+    });
+  });
+  const perItemHtml = Object.entries(itemMap).sort((a,b)=>(b[1].checked/b[1].total)-(a[1].checked/a[1].total)).map(([text,d])=>{
+    const rate=d.total?d.checked/d.total:0;
+    const label=text.length>32?text.slice(0,30)+'…':text;
+    return `<div class="bar-row" title="${esc(text)}">
+      <div class="bar-label" style="width:210px">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${rate*100}%;background:${rate>=.7?'var(--green)':rate>=.4?'var(--gold)':'var(--red)'}"></div></div>
+      <div class="bar-val" style="color:${rate>=.7?'var(--green)':rate>=.4?'var(--gold)':'var(--red)'}">${Math.round(rate*100)}%</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px">
+      ${groups.map(g=>`
+        <div style="padding:14px 16px;border-radius:10px;background:${g.bg};border:1px solid ${g.border}">
+          <div style="font-family:var(--mono);font-size:9px;color:${g.cls};text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">${g.label}</div>
+          <div style="font-family:var(--mono);font-size:18px;font-weight:500;color:${pnlOf(g.trades)>=0?'var(--green)':'var(--red)'};margin-bottom:4px">${fmtPnl(pnlOf(g.trades))}</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3)">${g.trades.length} trade${g.trades.length!==1?'s':''} · ${(wrOf(g.trades)*100).toFixed(0)}% win rate</div>
+        </div>`).join('')}
+    </div>
+    ${perItemHtml?`<div style="font-family:var(--mono);font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Per-rule adherence</div>${perItemHtml}`:''}
+  `;
+}
+
+// ── Pre-trade Checklist ────────────────────────────────────────────────────
+// Checklist definitions are stored in localStorage as an array of {id, text} objects
+// Per-trade completion state is stored in trade.checklistItems as [{id, text, checked}]
+
+const CL_STORAGE_KEY = 'ew-checklist-items';
+const CL_TEMPLATES = [
+  'Higher timeframe bias confirmed',
+  'Key level / confluence identified',
+  'Entry trigger has formed (no anticipation)',
+  'Risk defined — stop loss placed',
+  'Reward-to-risk is at least 2:1',
+  'Not in a restricted window (news, open/close chop)',
+  'Within daily loss limit',
+  'Emotional state is calm and focused',
+];
+
+function loadCLItems(){
+  try {
+    const raw = localStorage.getItem(CL_STORAGE_KEY);
+    if(raw) { const p=JSON.parse(raw); if(Array.isArray(p)) return p; }
+  } catch(e){}
+  return [];
+}
+
+function saveCLItems(items){
+  try { localStorage.setItem(CL_STORAGE_KEY, JSON.stringify(items)); } catch(e){}
+}
+
+// ── Checklist Modal (inside Log Trade modal) ──────────────────────────────
+function renderCLModal(){
+  const items = loadCLItems();
+  const emptyMsg = document.getElementById('cl-empty-msg');
+  const listWrap = document.getElementById('cl-list-wrap');
+  if(!items.length){
+    if(emptyMsg) emptyMsg.style.display='';
+    if(listWrap) listWrap.style.display='none';
+    return;
+  }
+  if(emptyMsg) emptyMsg.style.display='none';
+  if(listWrap) listWrap.style.display='';
+
+  // Init _pendingCL from template items if not already set
+  if(!window._pendingCL){
+    window._pendingCL = items.map(item=>({id:item.id, text:item.text, checked:false}));
+  } else {
+    // Sync: add any new items not in _pendingCL, remove deleted ones
+    const existingIds = new Set(window._pendingCL.map(i=>i.id));
+    items.forEach(item=>{ if(!existingIds.has(item.id)) window._pendingCL.push({id:item.id, text:item.text, checked:false}); });
+    window._pendingCL = window._pendingCL.filter(ci=> items.some(i=>i.id===ci.id));
+    // Update text in case it was edited
+    window._pendingCL.forEach(ci=>{ const src=items.find(i=>i.id===ci.id); if(src) ci.text=src.text; });
+  }
+
+  const cl = window._pendingCL;
+  const checkedCount = cl.filter(i=>i.checked).length;
+  const total = cl.length;
+
+  // Banner
+  const banner = document.getElementById('cl-banner');
+  if(banner){
+    if(total===0){ banner.style.display='none'; }
+    else {
+      banner.style.display='flex';
+      const pct = checkedCount/total;
+      banner.className = 'checklist-banner ' + (pct===1?'all-pass':pct===0?'all-fail':'partial');
+      const icon = pct===1?'✓':pct===0?'○':'◑';
+      banner.innerHTML = `<span style="font-size:16px">${icon}</span><span>${checkedCount} of ${total} items checked${pct===1?' — Ready to trade 🟢':pct===0?' — Complete checklist before trading':' — Almost there'}</span>`;
+    }
+  }
+
+  // Items
+  const container = document.getElementById('cl-items');
+  if(!container) return;
+  container.innerHTML = cl.map((item,i)=>`
+    <div class="checklist-item${item.checked?' checked':''}" onclick="toggleCLItem(${i})">
+      <div class="cl-box"></div>
+      <div class="cl-text">${esc(item.text)}</div>
+      ${item.checked
+        ? `<span class="cl-score pass">✓ Yes</span>`
+        : `<span class="cl-score fail">✗ No</span>`}
+    </div>
+  `).join('');
+}
+
+function toggleCLItem(index){
+  if(!window._pendingCL) return;
+  window._pendingCL[index].checked = !window._pendingCL[index].checked;
+  renderCLModal();
+}
+
+function checkAllCL(){
+  if(!window._pendingCL) return;
+  const allChecked = window._pendingCL.every(i=>i.checked);
+  window._pendingCL.forEach(i=>i.checked=!allChecked);
+  renderCLModal();
+}
+
+// ── Checklist Manager Modal ───────────────────────────────────────────────
+function openChecklistManager(){
+  renderCLManager();
+  document.getElementById('cl-manager-overlay').classList.add('open');
+}
+function closeChecklistManager(){
+  document.getElementById('cl-manager-overlay').classList.remove('open');
+}
+document.getElementById('cl-manager-overlay').addEventListener('click',e=>{
+  if(e.target===document.getElementById('cl-manager-overlay')) closeChecklistManager();
+});
+
+function renderCLManager(){
+  const items = loadCLItems();
+  const container = document.getElementById('cl-manager-items');
+  if(!container) return;
+
+  if(!items.length){
+    container.innerHTML = `<div style="font-family:var(--mono);font-size:11px;color:var(--text3);padding:14px 0;text-align:center">No items yet — add your first rule below.</div>`;
+  } else {
+    container.innerHTML = items.map((item,i)=>`
+      <div class="cl-manage-item" id="cl-mi-${item.id}">
+        <span class="cl-drag-handle">⠿</span>
+        <input type="text" value="${esc(item.text)}"
+          onchange="updateCLItem('${item.id}', this.value)"
+          onblur="updateCLItem('${item.id}', this.value)"
+          placeholder="Rule description…"/>
+        <button class="cl-del-btn" onclick="deleteCLItem('${item.id}')" title="Remove">×</button>
+      </div>
+    `).join('');
+  }
+
+  // Template tags
+  const tagWrap = document.getElementById('cl-template-tags');
+  if(tagWrap){
+    const existing = new Set(items.map(i=>i.text.toLowerCase().trim()));
+    tagWrap.innerHTML = CL_TEMPLATES
+      .filter(t=>!existing.has(t.toLowerCase()))
+      .map(t=>`<div class="tag" style="cursor:pointer;font-size:10px" onclick="addCLItemText('${t.replace(/'/g,"\\'")}')">+ ${esc(t)}</div>`)
+      .join('');
+    if(!tagWrap.innerHTML) tagWrap.innerHTML=`<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">All templates added ✓</span>`;
+  }
+}
+
+function addCLItem(){
+  const input = document.getElementById('cl-new-input');
+  const text = input.value.trim();
+  if(!text) return;
+  addCLItemText(text);
+  input.value='';
+  input.focus();
+}
+
+function addCLItemText(text){
+  const items = loadCLItems();
+  if(items.some(i=>i.text.toLowerCase()===text.toLowerCase())) return; // dedupe
+  items.push({ id: 'cl_'+Date.now()+'_'+Math.floor(Math.random()*9999), text });
+  saveCLItems(items);
+  renderCLManager();
+}
+
+function deleteCLItem(id){
+  const items = loadCLItems().filter(i=>i.id!==id);
+  saveCLItems(items);
+  renderCLManager();
+}
+
+function updateCLItem(id, newText){
+  const text = (newText||'').trim();
+  if(!text) return;
+  const items = loadCLItems();
+  const item = items.find(i=>i.id===id);
+  if(item) { item.text=text; saveCLItems(items); }
+}
+
+// ── Theme ───────────────────────────────────────────────────────────────────
 const THEMES = {
   dark: {
     '--bg':    '#16181e',
